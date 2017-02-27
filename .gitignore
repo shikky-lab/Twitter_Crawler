@@ -246,3 +246,6 @@ ModelManifest.xml
 
 #Python
 *.pyc
+
+#config
+*.ini
