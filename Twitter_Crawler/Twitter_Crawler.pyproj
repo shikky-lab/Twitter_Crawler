@@ -22,10 +22,14 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="load_tweets.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Twitter_Crawler.py" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="config.ini" />
+    <Content Include="readme.mod" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
