@@ -20,7 +20,7 @@ config.iniについて
 後半はTwitter_Crawler独自の変数．
 search_count:APIを呼び出す回数．基本は制限以下の値のセットを推奨．
 try_interval_sec:APIを呼び出す間に待ち時間(秒)をセット．未設定の場合はインターバルなし．
-resent_only:Trueの場合，過去の検索結果より新しいツイートのみを収集(※result_typeがresent以外の動作は保証しない)
+recent_only:Trueの場合，過去の検索結果より新しいツイートのみを収集(※result_typeがrecent以外の動作は保証しない)
 	なおsearch_countなどの制約に触れた場合，前回の結果より新しいツイートを全て収集できる保証はない．
 	また収集結果は別名で保存されるので，別途統合が必要．
 

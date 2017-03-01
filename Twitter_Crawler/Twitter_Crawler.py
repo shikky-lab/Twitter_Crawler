@@ -63,21 +63,21 @@ def main():
 	"""検索パラメータ(非ポスト)の読み込み"""
 	search_count=none_check(inifile.getint,'search_params', 'search_count',default=1)
 	try_interval_sec=none_check(inifile.getint,'search_params', 'try_interval_sec',default=0)
-	resent_only=none_check(inifile.getboolean,'search_params', 'resent_only',default=True)
+	recent_only=none_check(inifile.getboolean,'search_params', 'recent_only',default=True)
 
 	"""過去データの確認(保存tweetsのjsonのうち，最も末尾番号の新しいものを取得)"""
 	save_dir_path=inifile.get('other_settings', 'save_dir_path')
 	save_dir_name=inifile.get('other_settings', 'save_dir_name')
 	save_dir=os.path.join(save_dir_path,save_dir_name)
 	tweets_no=1#今回収集する結果の通し番号．過去データを参照する場合，それらの中の最大の数字+1に書き換えられる.
-	if resent_only is True:
+	if recent_only is True:
 		if os.path.exists(save_dir):
 			tweets_paths=glob.glob(save_dir+"/tweets*")
 			sort_nicely(tweets_paths)
 			with codecs.open(tweets_paths[-1],"r","utf8") as fi:
 				last_tweets=json.load(fi)
 			since_id=last_tweets[0]["id"]
-			tweets_no= int(re.findall('([0-9]+)', tweets_paths[-1])[-1])
+			tweets_no= int(re.findall('([0-9]+)', tweets_paths[-1])[-1])+1
 		else:
 			print("past data is not exit.exect normal collection")
 
@@ -92,13 +92,18 @@ def main():
 			break
 		if datas["statuses"] == []:
 			break
+		all_datas.extend(datas["statuses"])
+		print("collected %d tweets"%len(all_datas))
+		if "next_results" not in datas["search_metadata"]:
+			break
+
 		next_param=datas["search_metadata"]["next_results"][1:]#次の検索パラメータの取得．[1:]は先頭の「?」記号を除去するため
 		max_id=urllib.parse.parse_qs(next_param)["max_id"][0]
 		max_id=str(int(max_id)+1)#検索はmax_id未満に対して行うため，+1する
 		#max_id=datas["statuses"][-1]["id"]#収集したデータからmax_idを直接取得する場合．
-		all_datas.extend(datas["statuses"])
-		print("collected %d tweets"%len(all_datas))
 		time.sleep(try_interval_sec)
+	if recent_only is True and all_datas == []:
+		print("new tweets are nothing")
 
 	"""結果の保存"""
 	if not os.path.exists(save_dir):
