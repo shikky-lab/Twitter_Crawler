@@ -13,7 +13,7 @@ import re
 import time
 import urllib.parse
 
-def none_check(func,*args,default=''):
+def get_or_setDefault(func,*args,default=''):
 	"""
 	関数がエラー終了した際のラッピング．失敗した際にデフォルト値を返す．
 	@arg
@@ -51,65 +51,65 @@ def main():
 
 	"""検索パラメータの読み込み"""
 	q = inifile.get('search_params', 'query')
-	geocode=none_check(inifile.get,'search_params', 'geocode')
-	lang = none_check(inifile.get,'search_params', 'lang')
-	locale = none_check(inifile.get,'search_params', 'locale')
-	result_type = none_check(inifile.get,'search_params', 'result_type')
-	count = none_check(inifile.get,'search_params', 'count')
-	until = none_check(inifile.get,'search_params', 'until')
-	since_id=none_check(inifile.get,'search_params', 'since_id')
-	max_id=none_check(inifile.get,'search_params', 'max_id')
-	include_entities=none_check(inifile.get,'search_params', 'include_entities')
+	geocode=get_or_setDefault(inifile.get,'search_params', 'geocode')
+	lang = get_or_setDefault(inifile.get,'search_params', 'lang')
+	locale = get_or_setDefault(inifile.get,'search_params', 'locale')
+	result_type = get_or_setDefault(inifile.get,'search_params', 'result_type')
+	count = get_or_setDefault(inifile.get,'search_params', 'count')
+	until = get_or_setDefault(inifile.get,'search_params', 'until')
+	since_id=get_or_setDefault(inifile.get,'search_params', 'since_id')
+	max_id=get_or_setDefault(inifile.get,'search_params', 'max_id')
+	include_entities=get_or_setDefault(inifile.get,'search_params', 'include_entities')
 	"""検索パラメータ(非ポスト)の読み込み"""
-	search_count=none_check(inifile.getint,'search_params', 'search_count',default=1)
-	try_interval_sec=none_check(inifile.getint,'search_params', 'try_interval_sec',default=0)
-	recent_only=none_check(inifile.getboolean,'search_params', 'recent_only',default=True)
+	search_count=get_or_setDefault(inifile.getint,'search_params', 'search_count',default=1)
+	if search_count == 0:
+		search_count=True
 
-	"""過去データの確認(保存tweetsのjsonのうち，最も末尾番号の新しいものを取得)"""
+	"""保存先の設定"""
 	save_dir_path=inifile.get('other_settings', 'save_dir_path')
 	save_dir_name=inifile.get('other_settings', 'save_dir_name')
 	save_dir=os.path.join(save_dir_path,save_dir_name)
-	tweets_no=1#今回収集する結果の通し番号．過去データを参照する場合，それらの中の最大の数字+1に書き換えられる.
-	if recent_only is True:
-		if os.path.exists(save_dir):
-			tweets_paths=glob.glob(save_dir+"/tweets*")
-			sort_nicely(tweets_paths)
-			with codecs.open(tweets_paths[-1],"r","utf8") as fi:
-				last_tweets=json.load(fi)
-			since_id=last_tweets[0]["id"]
-			tweets_no= int(re.findall('([0-9]+)', tweets_paths[-1])[-1])+1
-		else:
-			print("past data is not exit.exect normal collection")
+	if os.path.exists(save_dir):
+		print("target directory exists.please delete or change target name")
+		exit()
+	tweets_no=1#保存時の通し番号
 
 	"""検索実行"""
-	t=twitter.Twitter(auth=twitter.OAuth(AccessToken, AccessTokenSecret, ConsumerKey, ConsumerSecret),retry=10)
-	all_datas=[]
-	for i in range(search_count):
+	if not os.path.exists(save_dir):
+		os.mkdir(save_dir)
+	t=twitter.Twitter(auth=twitter.OAuth(AccessToken, AccessTokenSecret, ConsumerKey, ConsumerSecret),retry=True)
+	collected_data_count=0
+	while search_count:
 		try:
 			datas=t.search.tweets(q=q,geocode=geocode,lang=lang,locale=locale,result_type=result_type,count=count,until=until,since_id=since_id,max_id=max_id,include_entities=include_entities)
 		except Exception as e:
 			print(e)
 			break
 		if datas["statuses"] == []:
+			print("there are not tweets")
 			break
-		all_datas.extend(datas["statuses"])
-		print("collected %d tweets"%len(all_datas))
-		if "next_results" not in datas["search_metadata"]:
-			break
+		with codecs.open(os.path.join(save_dir,"tweets"+str(tweets_no)+".json"),"w","utf8") as fo:
+			json.dump(datas["statuses"],fo,indent=4,ensure_ascii=False)
+		tweets_no+=1
+		collected_data_count+=len(datas["statuses"])
+		print("collected %d tweets"%collected_data_count)
 
-		next_param=datas["search_metadata"]["next_results"][1:]#次の検索パラメータの取得．[1:]は先頭の「?」記号を除去するため
-		max_id=urllib.parse.parse_qs(next_param)["max_id"][0]
-		max_id=str(int(max_id)+1)#検索はmax_id未満に対して行うため，+1する
-		#max_id=datas["statuses"][-1]["id"]#収集したデータからmax_idを直接取得する場合．
-		time.sleep(try_interval_sec)
-	if recent_only is True and all_datas == []:
-		print("new tweets are nothing")
+		"""次の検索時の最大max_idの設定"""
+		max_id=datas["statuses"][-1]["id"]#収集したデータからmax_idを直接取得する．next_paramsはたまに取得できないときがある？
+		max_id=str(int(max_id)-1)#検索はmax_id未満に対して行うはずなのだが，なぜか重複するため-1する．
+		"""以下，search_metadataを使ったmax_id設定．たまに取得できない事があったため上記方法に切り替えた．"""
+		#if "next_results" not in datas["search_metadata"]:
+		#	print("there are not next tweet")
+		#	break
+		#next_param=datas["search_metadata"]["next_results"][1:]#次の検索パラメータの取得．[1:]は先頭の「?」記号を除去するため
+		#max_id=urllib.parse.parse_qs(next_param)["max_id"][0]
+		#max_id=str(int(max_id)+1)#検索はmax_id未満に対して行うため+1する
 
-	"""結果の保存"""
-	if not os.path.exists(save_dir):
-		os.mkdir(save_dir)
-	with codecs.open(os.path.join(save_dir,"tweets"+str(tweets_no)+".json"),"w","utf8") as fo:
-		json.dump(all_datas,fo,indent=4,ensure_ascii=False)
+		if type(search_count) is int:
+			search_count-=1
+
+	if collected_data_count == 0:
+		print("target tweets are nothing")
 
 if __name__=="__main__":
 	main()
