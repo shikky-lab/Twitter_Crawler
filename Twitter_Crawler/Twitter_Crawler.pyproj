@@ -22,7 +22,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="load_tweets.py">
+    <Compile Include="load_tweets_sample.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Twitter_Crawler.py" />
